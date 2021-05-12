@@ -23,7 +23,7 @@
 // Definitions
 
 #define sampleFreq	100.0f  //512.0f		// sample frequency in Hz - tune to 100.0f to match Samsung S3's fastest speed - chanlhock 04/09/14
-#define betaDef		0.1f		// 2 * proportional gain
+#define betaDef		0.14f		// 2 * proportional gain
 
 //---------------------------------------------------------------------------------------------------
 // Variable definitions

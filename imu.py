@@ -43,6 +43,7 @@
 ##################################################################################################################
 
 #### include external libraries ####
+
 import socket
 import traceback
 import csv
@@ -50,12 +51,13 @@ import struct
 import sys, time, string, pygame
 from pygame.locals import *
 
+
 from ponycube import *
 from MadgwickAHRS import *
 import os
-
+from file import load_value,write_file
 #### assign local variables ####
-host = ''
+host = '192.168.1.13'
 port = 5555
 csvf = 'accelerometer.csv'
 
@@ -66,7 +68,7 @@ s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 s.bind((host, port))
 
 gameOver=False
-
+toggle = True
 #### do CSV stuff ####
 with open(csvf, 'w', newline='', encoding='ascii') as csv_handle:
     csv_writer = csv.writer(csv_handle, delimiter=',')
@@ -74,12 +76,12 @@ with open(csvf, 'w', newline='', encoding='ascii') as csv_handle:
     position = 20, 50
     os.environ['SDL_VIDEO_WINDOW_POS'] = str(position[0]) + "," + str(position[1])
 
-    f = open("log.txt", "w")  # open a log text file
+    f = open("log_file.txt", "w")  # open a log text file
 
     pygame.init()
     screen = Screen(780,700,scale=1.5)  # original was 480, 400
 
-    cube = Cube(60,120,10)   # original was 30,60,10
+    cube = Cube(60,120,30)   # original was 30,60,10
     caption = 'Platform for study of IMU features and functionality'
     pygame.display.set_caption(caption, 'Spine Runtime')
   
@@ -121,15 +123,15 @@ with open(csvf, 'w', newline='', encoding='ascii') as csv_handle:
             my_array = message.split(b',')
             #print(message)
             #print("gx: "+my_array[6]+"gy: "+my_array[7])
-            print(my_array[6])
-            print(my_array[7])
+            #print(my_array[6])
+            #print(my_array[7])
 
-            print('Length of array', len(my_array))
+            #print('Length of array', len(my_array))
             f.write("\nLength of array: ")
             length = len(my_array)
             f.write(str(length))
 
-            if len(my_array) >= 13:  # if received data packet length is < 13 then data is thrown away as incomplete
+            if len(my_array) == 13:  # if received data packet length is < 13 then data is thrown away as incomplete
                 ax = float(my_array[2])
                 ay = float(my_array[3])
                 az = float(my_array[4])
@@ -147,15 +149,15 @@ with open(csvf, 'w', newline='', encoding='ascii') as csv_handle:
                     time_diff = float(my_array[0]) - previous_timestamp
                     previous_timestamp = float(my_array[0])
 
-                print('Time taken:', time_diff, 'secs')
+                # print('Time taken:', time_diff, 'secs')
                 
                 # Implementation of Madgwick's IMU and AHRS algorithms.
                 # Uses the New Orientation Filter instead of conventional Kalman filter
                 quaternion_list = MadgwickAHRSupdate(gx, gy, gz, ax, ay, az, mx, my, mz)     # c code module to be called by Python  
                 
-                print(">>>> Quaternion output qx, qy, qz, qw")
+                # print(">>>> Quaternion output qx, qy, qz, qw")
                 f.write("\n>>>> Quaternion output qx, qy, qz, qw\n")
-                print(quaternion_list)
+                
                 #print("qx=%f qy=%f qz=%f qw=%f", quaternion_list[0], quaternion_list[1], quaternion_list[2], quaternion_list[3])
 
                 # assigned returned output to the quaternion local variables
@@ -163,7 +165,23 @@ with open(csvf, 'w', newline='', encoding='ascii') as csv_handle:
                 qy = float(quaternion_list[1])
                 qz = float(quaternion_list[2])
                 qw = float(quaternion_list[3])
+                # axis angle representation
+                if toggle == True:
+                    prev_angle = math.degrees(math.acos(qw))
+                    toggle = False
 
+                else:          
+                    current_angle =  math.degrees(math.acos(qw))    
+                    angle_diff = current_angle - prev_angle
+                    # print(angle_diff)
+                    toggle = True
+                    data = load_value(angle_diff*100,100)
+                    # print(len(data))
+                    if len(data) >= 98:
+                        write_file(data) 
+
+                
+                
                 f.write(str(qx))
                 f.write(" ")
                 f.write(str(qy))
@@ -182,7 +200,7 @@ with open(csvf, 'w', newline='', encoding='ascii') as csv_handle:
 
                 pygame.display.flip()
 
-            print("  ")  # leave an empty row for ease of readability
+            # print("  ")  # leave an empty row for ease of readability
             # TODO: If system load is too high, increase this sleep time.
 
             pygame.time.delay(0)
@@ -196,3 +214,7 @@ with open(csvf, 'w', newline='', encoding='ascii') as csv_handle:
         except Exception:
             traceback.print_exc()
     f.close()
+
+
+
+
